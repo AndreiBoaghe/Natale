@@ -13,16 +13,8 @@
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<vaadin.version>8.0.5</vaadin.version>
-
-		<Vaadin-License-Title>Apache License 2.0</Vaadin-License-Title>
+		<license.title>Apache License 2.0</license.title>
 	</properties>
-
-	<repositories>
-		<repository>
-			<id>vaadin-addons</id>
-			<url>http://maven.vaadin.com/vaadin-addons</url>
-		</repository>
-	</repositories>
 
 	<licenses>
 		<license>
@@ -45,12 +37,6 @@
 			</exclusions>
 		</dependency>
 		<dependency>
-			<groupId>org.vaadin.addon</groupId>
-			<artifactId>confirmdialog</artifactId>
-			<version>3.1.1</version>
-		</dependency>
-
-		<dependency>
 			<groupId>log4j</groupId>
 			<artifactId>log4j</artifactId>
 			<version>1.2.17</version>
@@ -64,34 +50,6 @@
 
 	<build>
 		<plugins>
-			<plugin>
-				<groupId>com.vaadin</groupId>
-				<artifactId>vaadin-maven-plugin</artifactId>
-				<version>8.0.0</version>
-			</plugin>
-
-			<!-- add proper OGSI entries to manifest -->
-			<plugin>
-				<groupId>org.apache.felix</groupId>
-				<artifactId>maven-bundle-plugin</artifactId>
-				<version>2.5.3</version>
-				<extensions>true</extensions>
-				<configuration>
-					<instructions>
-						<Export-Package>org.vaadin.viritin.*</Export-Package>
-					</instructions>
-				</configuration>
-				<executions>
-					<execution>
-						<id>manifest</id>
-						<phase>process-classes</phase>
-						<goals>
-							<goal>manifest</goal>
-						</goals>
-					</execution>
-				</executions>
-			</plugin>
-
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
@@ -116,7 +74,7 @@
 						<manifestEntries>
 							<!-- Package format version - do not change -->
 							<Vaadin-Package-Version>1</Vaadin-Package-Version>
-							<Vaadin-License-Title>${Vaadin-License-Title}</Vaadin-License-Title>
+							<Vaadin-License-Title>${license.title}</Vaadin-License-Title>
 						</manifestEntries>
 					</archive>
 				</configuration>
@@ -160,14 +118,6 @@
 						<descriptor>assembly/assembly.xml</descriptor>
 					</descriptors>
 				</configuration>
-				<executions>
-					<!--                    <execution>
-						<goals>
-							<goal>single</goal>
-						</goals>
-						<phase>install</phase>
-					</execution>-->
-				</executions>
 			</plugin>
 		</plugins>
 	</build>
