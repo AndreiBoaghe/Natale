@@ -1,17 +1,20 @@
-package org.vaadin.natale.filter.impl;
+package org.vaadin.natale.filter;
 
 import org.apache.log4j.Logger;
-import org.vaadin.natale.filter.Filter;
-import org.vaadin.natale.filter.FilterMode;
+import org.vaadin.natale.util.PropertyChangeNotification;
 
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeSupport;
 import java.util.Objects;
 import java.util.function.BiFunction;
 
 import static org.vaadin.natale.util.ReflectionUtil.invokeGetterMethodByPropertyName;
 
-public class PropertyFilter<E, P> implements Filter<E, P> {
+public class PropertyFilter<E, P> implements Filter<E, P>, PropertyChangeNotification {
 
 	private final static Logger logger = Logger.getLogger(PropertyFilter.class);
+
+	private PropertyChangeSupport changer = new PropertyChangeSupport(this);
 
 	private final String propertyName;
 
@@ -114,7 +117,7 @@ public class PropertyFilter<E, P> implements Filter<E, P> {
 
 	/**
 	 * Checks {@code ReflectionFilterMode} and {@code objectPoFilter} class.<br>
-	 * <b>Note: </b>'CONPAINS' and 'NOP_CONPAINS' modes are used only for string objects.
+	 * <b>Note: </b>'CONTAINS' and 'NOT_CONTAINS' modes are used only for string objects.
 	 *
 	 * @param objectPoFilter object to filter
 	 */
@@ -147,19 +150,31 @@ public class PropertyFilter<E, P> implements Filter<E, P> {
 		return ignoreCase;
 	}
 
-	public PropertyFilter<E, P> setPropertyFilterValue(P initialFilterValue) {
-		this.propertyFilterValue = initialFilterValue;
+	public PropertyFilter<E, P> setPropertyFilterValue(P filterValue) {
+		changer.firePropertyChange("filterValue", this.propertyFilterValue, filterValue);
+		this.propertyFilterValue = filterValue;
 		return this;
 	}
 
 	public PropertyFilter<E, P> setFilterMode(FilterMode mode) {
+		changer.firePropertyChange("filterMode", this.mode, mode);
 		this.mode = mode;
 		return this;
 	}
 
 	public PropertyFilter<E, P> setIgnoreCase(boolean ignoreCase) {
+		changer.firePropertyChange("ignoreCase", this.ignoreCase, ignoreCase);
 		this.ignoreCase = ignoreCase;
 		return this;
 	}
 
+	@Override
+	public void addPropertyChangeListener(PropertyChangeListener listener) {
+		changer.addPropertyChangeListener(listener);
+	}
+
+	@Override
+	public void removePropertyChangeListener(PropertyChangeListener listener) {
+		changer.removePropertyChangeListener(listener);
+	}
 }
