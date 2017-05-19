@@ -5,7 +5,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.vaadin</groupId>
 	<artifactId>natale</artifactId>
-	<version>1.2.1</version>
+	<version>1.2.2</version>
 
 	<name>Natale</name>
 	<description>Addon for Vaadin 8</description>

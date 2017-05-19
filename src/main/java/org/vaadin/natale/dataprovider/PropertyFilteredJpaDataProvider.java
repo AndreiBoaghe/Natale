@@ -9,6 +9,8 @@ import org.vaadin.natale.util.ObservableMap;
 import java.util.Objects;
 import java.util.stream.Stream;
 
+import static org.vaadin.natale.util.ReflectionUtil.invokeGetterMethodByPropertyName;
+
 public class PropertyFilteredJpaDataProvider<T> extends JpaDataProvider<T> {
 
 	// Mutable observable map of property filters.
@@ -45,7 +47,7 @@ public class PropertyFilteredJpaDataProvider<T> extends JpaDataProvider<T> {
 			super.setFilter(null);
 		} else {
 			filterMap.putIfAbsent(filter.getPropertyName(), filter);
-			setFilter(filter::testEntity);
+			setFilter(entity -> filter.testProperty(getPropertyValueForEntity(filter.getPropertyName(), entity)));
 
 			// Register a property listener to handle any changes in filter object.
 			filter.addPropertyChangeListener(event -> updateMainFilterObject());
@@ -90,8 +92,14 @@ public class PropertyFilteredJpaDataProvider<T> extends JpaDataProvider<T> {
 		return filterMap.remove(propertyName);
 	}
 
+	@SuppressWarnings("unchecked")
 	private void updateMainFilterObject() {
 		setFilter(null);
-		filterMap.forEach((propertyName, propertyFilter) -> addFilter(propertyFilter::testEntity));
+		filterMap.forEach((propertyName, filter) ->
+				addFilter(entity -> filter.testProperty(getPropertyValueForEntity(filter.getPropertyName(), entity))));
+	}
+
+	private Object getPropertyValueForEntity(String propertyName, T entity) {
+		return invokeGetterMethodByPropertyName(propertyName, entity);
 	}
 }

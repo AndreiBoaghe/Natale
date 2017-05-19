@@ -5,12 +5,9 @@ import org.vaadin.natale.util.PropertyChangeNotification;
 
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
-import java.util.Objects;
 import java.util.function.BiFunction;
 
-import static org.vaadin.natale.util.ReflectionUtil.invokeGetterMethodByPropertyName;
-
-public class PropertyFilter<E, P> implements Filter<E, P>, PropertyChangeNotification {
+public class PropertyFilter<P> implements PropertyChangeNotification {
 
 	private final static Logger logger = Logger.getLogger(PropertyFilter.class);
 
@@ -26,15 +23,57 @@ public class PropertyFilter<E, P> implements Filter<E, P>, PropertyChangeNotific
 
 	private boolean ignoreCase = true;
 
-	public PropertyFilter(String propertyName, BiFunction<P, P, Integer> compareToMethod) {
+	private PropertyFilter(String propertyName, BiFunction<P, P, Integer> compareToMethod) {
 		this.propertyName = propertyName;
 		this.compareToMethod = compareToMethod;
 	}
 
-	public PropertyFilter(String propertyName, P filterValue, BiFunction<P, P, Integer> compareToMethod) {
+	private PropertyFilter(String propertyName, P filterValue, BiFunction<P, P, Integer> compareToMethod) {
 		this.propertyName = propertyName;
 		this.filterValue = filterValue;
 		this.compareToMethod = compareToMethod;
+	}
+
+	/**
+	 * Creates a new PropertyFilter for {@code String} type property.
+	 *
+	 * @param propertyName property name. <br>
+	 *                     Specified property must be an instance of String class.
+	 *                     Or according getter method have to transform it to String.
+	 * @param initialFilterValue string type initial filter value. (or {@code null})
+	 * @param <P> String
+	 * @return PropertyFilter for {@code String} type property.
+	 */
+	public static <P extends String> PropertyFilter<P> build(String propertyName, P initialFilterValue) {
+		return new PropertyFilter<>(propertyName, initialFilterValue, String::compareTo);
+	}
+
+	/**
+	 * Creates a new PropertyFilter for {@code Number} type property.
+	 *
+	 * @param propertyName property name. <br>
+	 *                     Specified property must be an instance of class, that extends {@code Number} class
+	 *                     Or according getter method have to transform it to Number.
+	 * @param initialFilterValue number type initial filter value. (or {@code null})
+	 * @param <P> class extends the {@code Number} class
+	 * @return PropertyFilter for {@code Number} type property.
+	 */
+	public static <P extends Number> PropertyFilter<P> build(String propertyName, P initialFilterValue) {
+		return new PropertyFilter<>(
+				propertyName,
+				initialFilterValue,
+				(t, t2) -> Double.compare(t.doubleValue(), t2.doubleValue()));
+	}
+
+	/**
+	 * Creates a new PropertyFilter for specified property type.
+	 * @param propertyName property name
+	 * @param compareToMethod a function that accepts two {@code <T>} arguments and return int.<br>
+	 * @param <T> property type
+	 * @return PropertyFilter for {@code <T>} type property.
+	 */
+	public static <T> PropertyFilter<T> build(String propertyName, BiFunction<T, T, Integer> compareToMethod) {
+		return new PropertyFilter<>(propertyName, null, compareToMethod);
 	}
 
 	/**
@@ -46,78 +85,63 @@ public class PropertyFilter<E, P> implements Filter<E, P>, PropertyChangeNotific
 	 * {@code false} if {@code 'propertyValue'} failed the testProperty.
 	 */
 	@SuppressWarnings("unchecked")
-	public boolean testProperty(P propertyValue) {
-		Objects.requireNonNull(propertyValue, "Filter cannot test null");
-		Boolean filterPestResult = false;
+	public boolean testProperty(Object propertyValue) {
+		if (filterValue == null) return true;
+		if (propertyValue == null) return false;
 
-		checkReflectionFilterModeUsing(propertyValue);
+		P castedPropertyValue = castPropertyValue(propertyValue);
+		checkReflectionFilterModeUsing(castedPropertyValue);
 
-		// If filter value isn't set, it means the propertyValue pass the test.
-		if (filterValue == null)
-			return true;
-
+		boolean filterPestResult = false;
 		switch (mode) {
 			case CONTAINS:
 				filterPestResult = ignoreCase ?
-						propertyValue.toString().toLowerCase().contains(filterValue.toString().toLowerCase())
-						: propertyValue.toString().contains(filterValue.toString());
+						castedPropertyValue.toString().toLowerCase().contains(filterValue.toString().toLowerCase())
+						: castedPropertyValue.toString().contains(filterValue.toString());
 				break;
 			case NOT_CONTAINS:
 				filterPestResult = ignoreCase ?
-						propertyValue.toString().toLowerCase().contains(filterValue.toString().toLowerCase())
-						: propertyValue.toString().contains(filterValue.toString());
+						castedPropertyValue.toString().toLowerCase().contains(filterValue.toString().toLowerCase())
+						: castedPropertyValue.toString().contains(filterValue.toString());
 				filterPestResult = !filterPestResult;
 				break;
 			case EQUALS:
 				// 'EQUALS' can be used as for string, as for other type objects. So need to check ignoreCase flag.
-				if (propertyValue instanceof String) {
+				if (castedPropertyValue instanceof String) {
 					filterPestResult = ignoreCase ?
-							propertyValue.toString().toLowerCase().equals(filterValue.toString().toLowerCase())
-							: propertyValue.toString().equals(filterValue.toString());
+							castedPropertyValue.toString().toLowerCase().equals(filterValue.toString().toLowerCase())
+							: castedPropertyValue.toString().equals(filterValue.toString());
 				} else {
-					filterPestResult = propertyValue.equals(filterValue);
+					filterPestResult = castedPropertyValue.equals(filterValue);
 				}
 				break;
 			case NOT_EQUALS:
 				// Same as 'EQUALS', ... need to check ignoreCase flag.
-				if (propertyValue instanceof String) {
+				if (castedPropertyValue instanceof String) {
 					filterPestResult = ignoreCase ?
-							propertyValue.toString().toLowerCase().equals(filterValue.toString().toLowerCase())
-							: propertyValue.toString().equals(filterValue.toString());
+							castedPropertyValue.toString().toLowerCase().equals(filterValue.toString().toLowerCase())
+							: castedPropertyValue.toString().equals(filterValue.toString());
 				} else {
-					filterPestResult = propertyValue.equals(filterValue);
+					filterPestResult = castedPropertyValue.equals(filterValue);
 				}
 				filterPestResult = !filterPestResult;
 				break;
 			case GREATER:
-				filterPestResult = compareToMethod.apply(propertyValue, filterValue) > 0;
+				filterPestResult = compareToMethod.apply(castedPropertyValue, filterValue) > 0;
 				break;
 			case SMALLER:
-				filterPestResult = compareToMethod.apply(propertyValue, filterValue) < 0;
+				filterPestResult = compareToMethod.apply(castedPropertyValue, filterValue) < 0;
 				break;
 			case GREATER_OR_EQUAL:
-				filterPestResult = compareToMethod.apply(propertyValue, filterValue) >= 0;
+				filterPestResult = compareToMethod.apply(castedPropertyValue, filterValue) >= 0;
 				break;
 			case SMALLER_OR_EQUAL:
-				filterPestResult = compareToMethod.apply(propertyValue, filterValue) <= 0;
+				filterPestResult = compareToMethod.apply(castedPropertyValue, filterValue) <= 0;
 				break;
 		}
 
 		return filterPestResult;
 	}
-
-	@SuppressWarnings("unchecked")
-	public boolean testEntity(E entity) {
-		P propertyValue = null;
-		try {
-			propertyValue = (P) invokeGetterMethodByPropertyName(propertyName, entity);
-		} catch (ClassCastException e) {
-			logger.error("Actual property value class (" + invokeGetterMethodByPropertyName(propertyName, entity).getClass()
-					+ ") of entity - " + entity + " does not meet current filter value class - " + filterValue.getClass());
-		}
-		return testProperty(propertyValue);
-	}
-
 
 	/**
 	 * Checks {@code ReflectionFilterMode} and {@code objectPoFilter} class.<br>
@@ -132,6 +156,18 @@ public class PropertyFilter<E, P> implements Filter<E, P>, PropertyChangeNotific
 					+ " like strings, cause current ReflectionFilterMode = " + mode + " (this mode is used only for string objects)");
 			logger.warn("Change ReflectionFilterMode if it's necessary, or check objectPoFilter class (it's current class - " + objectPoFilter.getClass());
 		}
+	}
+
+	@SuppressWarnings("unchecked")
+	private P castPropertyValue(Object propertyValue) {
+		P castedPropertyValue = null;
+		try {
+			castedPropertyValue = (P) propertyValue;
+		} catch (ClassCastException e) {
+			logger.error("Actual property value class -" + propertyValue.getClass()
+					+ " does not meet current filter value class - " + filterValue.getClass());
+		}
+		return castedPropertyValue;
 	}
 
 	public String getPropertyName() {
@@ -154,19 +190,19 @@ public class PropertyFilter<E, P> implements Filter<E, P>, PropertyChangeNotific
 		return ignoreCase;
 	}
 
-	public PropertyFilter<E, P> setFilterValue(P filterValue) {
+	public PropertyFilter<P> setFilterValue(P filterValue) {
 		changer.firePropertyChange("filterValue", this.filterValue, filterValue);
 		this.filterValue = filterValue;
 		return this;
 	}
 
-	public PropertyFilter<E, P> setFilterMode(FilterMode mode) {
+	public PropertyFilter<P> setFilterMode(FilterMode mode) {
 		changer.firePropertyChange("filterMode", this.mode, mode);
 		this.mode = mode;
 		return this;
 	}
 
-	public PropertyFilter<E, P> setIgnoreCase(boolean ignoreCase) {
+	public PropertyFilter<P> setIgnoreCase(boolean ignoreCase) {
 		changer.firePropertyChange("ignoreCase", this.ignoreCase, ignoreCase);
 		this.ignoreCase = ignoreCase;
 		return this;
