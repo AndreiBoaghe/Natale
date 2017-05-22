@@ -4,7 +4,7 @@ import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.util.HashMap;
 
-public class ObservableMap<K, V> extends HashMap<K, V> implements PropertyChangeNotification {
+public class ObservableHashMap<K, V> extends HashMap<K, V> implements PropertyChangeNotification {
 
 	private PropertyChangeSupport changer = new PropertyChangeSupport(this);
 

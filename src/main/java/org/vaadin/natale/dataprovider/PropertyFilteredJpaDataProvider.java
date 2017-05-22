@@ -1,37 +1,27 @@
 package org.vaadin.natale.dataprovider;
 
-import com.vaadin.data.provider.Query;
 import com.vaadin.server.SerializablePredicate;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.vaadin.natale.filter.PropertyFilter;
-import org.vaadin.natale.util.ObservableMap;
+import org.vaadin.natale.util.ObservableHashMap;
 
 import java.util.Objects;
-import java.util.stream.Stream;
 
-import static org.vaadin.natale.util.ReflectionUtil.invokeGetterMethodByPropertyName;
+import static org.vaadin.natale.util.ReflectionUtil.getPropertyValueByName;
 
 public class PropertyFilteredJpaDataProvider<T> extends JpaDataProvider<T> {
 
 	// Mutable observable map of property filters.
 	// Key - property name (PropertyFilter.getPropertyName()),
 	// Value - PropertyFilter itself.
-	private final ObservableMap<String, PropertyFilter> filterMap;
+	private final ObservableHashMap<String, PropertyFilter> filterMap;
 
 	public PropertyFilteredJpaDataProvider(JpaRepository<T, ?> repository) {
 		super(repository);
-		filterMap = new ObservableMap<>();
+		filterMap = new ObservableHashMap<>();
 
 		// Register a property listener to handle simple changes (put/remove) in map.
 		filterMap.addPropertyChangeListener(event -> updateMainFilterObject());
-	}
-
-	@Override
-	public Stream<T> fetch(Query<T, SerializablePredicate<T>> query) {
-
-		//TODO: new Query to sort items in DB.
-		//new Query<>()
-		return super.fetch(query);
 	}
 
 	/**
@@ -47,7 +37,7 @@ public class PropertyFilteredJpaDataProvider<T> extends JpaDataProvider<T> {
 			super.setFilter(null);
 		} else {
 			filterMap.putIfAbsent(filter.getPropertyName(), filter);
-			setFilter(entity -> filter.testProperty(getPropertyValueForEntity(filter.getPropertyName(), entity)));
+			setFilter(entity -> filter.testProperty(getPropertyValueByName(filter.getPropertyName(), entity)));
 
 			// Register a property listener to handle any changes in filter object.
 			filter.addPropertyChangeListener(event -> updateMainFilterObject());
@@ -96,10 +86,7 @@ public class PropertyFilteredJpaDataProvider<T> extends JpaDataProvider<T> {
 	private void updateMainFilterObject() {
 		setFilter(null);
 		filterMap.forEach((propertyName, filter) ->
-				addFilter(entity -> filter.testProperty(getPropertyValueForEntity(filter.getPropertyName(), entity))));
+				addFilter(entity -> filter.testProperty(getPropertyValueByName(filter.getPropertyName(), entity))));
 	}
 
-	private Object getPropertyValueForEntity(String propertyName, T entity) {
-		return invokeGetterMethodByPropertyName(propertyName, entity);
-	}
 }

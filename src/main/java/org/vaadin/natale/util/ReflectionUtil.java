@@ -12,13 +12,14 @@ public class ReflectionUtil {
     private static final Logger logger = Logger.getLogger(ReflectionUtil.class);
 
     /**
-     * Recursively parse the input string and returns the according value for .
+     * Recursively parse the input string and returns the according value of propertyName for obj.
      *
-     * @param propertyName - field (property) name to parse. For example: 'artistId', 'artist.id'. (nested bean)
-     * @param obj          - Object.
-     * @return result of executing getter method under {@code obj}.
+     * @param propertyName field of class(property) name to parse. <br>
+     *                     For example: 'artistId'; 'artist.id' (nested property name)
+     * @param obj          object to get value.
+     * @return result of executing getter method for {@code propertyName} under {@code obj}.
      */
-    public static Object invokeGetterMethodByPropertyName(String propertyName, Object obj) {
+    public static Object getPropertyValueByName(String propertyName, Object obj) {
 
         Class currentClazz = obj.getClass();
 
@@ -29,7 +30,7 @@ public class ReflectionUtil {
             Method getter = getGetterMethodByPropertyName(currentClazz, propertyName.substring(0, propertyName.indexOf(".")));
 
             Object nextObject = invokeGetterMethodForObject(getter, obj);
-            return invokeGetterMethodByPropertyName(nextPropertyName, nextObject);
+            return getPropertyValueByName(nextPropertyName, nextObject);
         }
 
         // Else if there is a simple property, just return the according getter method.
@@ -50,14 +51,12 @@ public class ReflectionUtil {
 
     public static Object invokeGetterMethodForObject(Method getter, Object obj) {
 		Object value = null;
-
 		try {
 			value = getter.invoke(obj);
 		} catch (IllegalAccessException | InvocationTargetException e) {
 			logger.error("Couldn't invoke method [" + getter.getName() + " - " + getter + "] for object: " + obj);
 			e.printStackTrace();
 		}
-
 		return value;
 	}
 
@@ -77,13 +76,13 @@ public class ReflectionUtil {
 		return value;
 	}
 
-    public static Class getNestedPropertyTypeByName(Class clazz, String propertyName) {
+    public static Class getPropertyType(Class clazz, String propertyName) {
         if (propertyName.contains(".")) {
             Method getter = getGetterMethodByPropertyName(clazz, propertyName.substring(0, propertyName.indexOf(".")));
 
             String nextPropertyName = propertyName.substring(propertyName.indexOf(".") + 1);
             Class nextClazz = getter.getReturnType();
-            return getNestedPropertyTypeByName(nextClazz, nextPropertyName);
+            return getPropertyType(nextClazz, nextPropertyName);
         }
 
         return getGetterMethodByPropertyName(clazz, propertyName).getReturnType();

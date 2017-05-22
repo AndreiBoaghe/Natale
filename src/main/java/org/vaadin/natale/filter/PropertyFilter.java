@@ -37,11 +37,11 @@ public class PropertyFilter<P> implements PropertyChangeNotification {
 	/**
 	 * Creates a new PropertyFilter for {@code String} type property.
 	 *
-	 * @param propertyName property name. <br>
-	 *                     Specified property must be an instance of String class.
-	 *                     Or according getter method have to transform it to String.
+	 * @param propertyName       property name. <br>
+	 *                           Specified property must be an instance of String class.
+	 *                           Or according getter method have to transform it to String.
 	 * @param initialFilterValue string type initial filter value. (or {@code null})
-	 * @param <P> String
+	 * @param <P>                String
 	 * @return PropertyFilter for {@code String} type property.
 	 */
 	public static <P extends String> PropertyFilter<P> build(String propertyName, P initialFilterValue) {
@@ -51,11 +51,11 @@ public class PropertyFilter<P> implements PropertyChangeNotification {
 	/**
 	 * Creates a new PropertyFilter for {@code Number} type property.
 	 *
-	 * @param propertyName property name. <br>
-	 *                     Specified property must be an instance of class, that extends {@code Number} class
-	 *                     Or according getter method have to transform it to Number.
+	 * @param propertyName       property name. <br>
+	 *                           Specified property must be an instance of class, that extends {@code Number} class
+	 *                           Or according getter method have to transform it to Number.
 	 * @param initialFilterValue number type initial filter value. (or {@code null})
-	 * @param <P> class extends the {@code Number} class
+	 * @param <P>                class extends the {@code Number} class
 	 * @return PropertyFilter for {@code Number} type property.
 	 */
 	public static <P extends Number> PropertyFilter<P> build(String propertyName, P initialFilterValue) {
@@ -67,9 +67,10 @@ public class PropertyFilter<P> implements PropertyChangeNotification {
 
 	/**
 	 * Creates a new PropertyFilter for specified property type.
-	 * @param propertyName property name
+	 *
+	 * @param propertyName    property name
 	 * @param compareToMethod a function that accepts two {@code <T>} arguments and return int.<br>
-	 * @param <T> property type
+	 * @param <T>             property type
 	 * @return PropertyFilter for {@code <T>} type property.
 	 */
 	public static <T> PropertyFilter<T> build(String propertyName, BiFunction<T, T, Integer> compareToMethod) {
@@ -86,11 +87,15 @@ public class PropertyFilter<P> implements PropertyChangeNotification {
 	 */
 	@SuppressWarnings("unchecked")
 	public boolean testProperty(Object propertyValue) {
-		if (filterValue == null) return true;
-		if (propertyValue == null) return false;
+		if (filterValue == null || propertyValue == null)
+			return true;
 
-		P castedPropertyValue = castPropertyValue(propertyValue);
-		checkReflectionFilterModeUsing(castedPropertyValue);
+		P castedPropertyValue;
+		try {
+			castedPropertyValue = castPropertyValue(propertyValue);
+		} catch (ClassCastException e) {
+			return false;
+		}
 
 		boolean filterPestResult = false;
 		switch (mode) {
@@ -143,20 +148,6 @@ public class PropertyFilter<P> implements PropertyChangeNotification {
 		return filterPestResult;
 	}
 
-	/**
-	 * Checks {@code ReflectionFilterMode} and {@code objectPoFilter} class.<br>
-	 * <b>Note: </b>'CONTAINS' and 'NOT_CONTAINS' modes are used only for string objects.
-	 *
-	 * @param objectPoFilter object to filter
-	 */
-	private void checkReflectionFilterModeUsing(P objectPoFilter) {
-		if ((mode.equals(FilterMode.CONTAINS) || mode.equals(FilterMode.NOT_CONTAINS)) &&
-				(!objectPoFilter.getClass().equals(String.class))) {
-			logger.warn("Comparing current filter value [" + filterValue + "] with filter objects [" + objectPoFilter + "]"
-					+ " like strings, cause current ReflectionFilterMode = " + mode + " (this mode is used only for string objects)");
-			logger.warn("Change ReflectionFilterMode if it's necessary, or check objectPoFilter class (it's current class - " + objectPoFilter.getClass());
-		}
-	}
 
 	@SuppressWarnings("unchecked")
 	private P castPropertyValue(Object propertyValue) {
@@ -199,6 +190,8 @@ public class PropertyFilter<P> implements PropertyChangeNotification {
 	public PropertyFilter<P> setFilterMode(FilterMode mode) {
 		changer.firePropertyChange("filterMode", this.mode, mode);
 		this.mode = mode;
+
+		checkPropertyFilterModeUsing();
 		return this;
 	}
 
@@ -216,5 +209,19 @@ public class PropertyFilter<P> implements PropertyChangeNotification {
 	@Override
 	public void removePropertyChangeListener(PropertyChangeListener listener) {
 		changer.removePropertyChangeListener(listener);
+	}
+
+	/**
+	 * Checks {@code FilterMode} and {@code filterValue} object class.<br>
+	 * Logs a warn, if filter hadn't passed the check.<br>
+	 * <b>Note: </b>'CONTAINS' and 'NOT_CONTAINS' modes are used only for string objects.
+	 */
+	private void checkPropertyFilterModeUsing() {
+		if ((mode.equals(FilterMode.CONTAINS) || mode.equals(FilterMode.NOT_CONTAINS)) &&
+				(!filterValue.getClass().equals(String.class))) {
+			logger.warn("You change FilterMode to " + mode + ", which is used only for String values. " +
+					"Current filterValue - " + filterValue + "(" + filterValue.getClass() + ") and received property values would be casted to String.\n" +
+					"Check filterValue, or change FilterMode to another, or change PropertyFilter generic parameter <P> to avoid this warning.");
+		}
 	}
 }
