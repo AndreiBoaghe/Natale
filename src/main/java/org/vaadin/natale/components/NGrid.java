@@ -12,177 +12,153 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.vaadin.natale.util.ReflectionUtil.invokeGetterMethodByPropertyName;
+import static org.vaadin.natale.util.ReflectionUtil.getPropertyValueByName;
 
 
 public class NGrid<T> extends Grid<T> {
 
-    private static final Logger logger = Logger.getLogger(NGrid.class);
+	private static final Logger logger = Logger.getLogger(NGrid.class);
 
-    private T lastModifiedItem;
+	public NGrid(Class<T> beanClazz) {
+		super(beanClazz);
+	}
 
-    public NGrid(Class<T> beanClazz) {
-        super(beanClazz);
-    }
+	public NGrid(Class<T> beanClazz, DataProvider<T, ?> dataProvider) {
+		super(beanClazz);
+		setDataProvider(dataProvider);
+	}
 
-    public NGrid(Class<T> beanClazz, DataProvider<T, ?> dataProvider) {
-        super(beanClazz);
-        //grid.setStyleName("good");
-        setDataProvider(dataProvider);
-        setSelectionMode(SelectionMode.SINGLE);
+	/**
+	 * Wrap current NGrid and create (set Captions and Id) columns.<br>
+	 *
+	 * @param propertiesNames properties names of {@code <T>} class.
+	 * @return NGrid.
+	 * <br><b>Note:</b> Columns id are generated accordingly to columnIdsList.
+	 */
+	public NGrid<T> withColumns(String... propertiesNames) {
+		PropertyNameFormatter propertyNameFormatter = new PropertyNameFormatter();
 
-//        addItemClickListener(new ItemClickListener<T>() {
-//            @Override
-//            public void itemClick(ItemClick<T> event) {
-//                if (event.getMouseEventDetails().isDoubleClick()) {
-//                    lastModifiedItem = event.getItem();
-//
-//                    setStyleGenerator(new StyleGenerator<T>() {
-//                        @Override
-//                        public String apply(T item) {
-//
-//                            if (item.equals(lastModifiedItem))
-//                                return "good2";
-//                            return null;
-//                        }
-//                    });
-//                }
-//            }
-//        });
+		// Remove all columns and add them manually.
+		removeAllColumns();
 
-    }
+		for (String propertyName : propertiesNames) {
+			addColumn((ValueProvider<T, Object>) t -> getPropertyValueByName(propertyName, t))
+					.setCaption(propertyNameFormatter.getConvertedPropertyName(propertyName))
+					.setId(propertyName);
+		}
 
-    /**
-     * Wrap current NGrid and create (set Captions and Id) columns.<br>
-     *
-     * @param propertiesNames - properties names for Entity class.
-     * @return NGrid.<br>
-     * <b>Note:</b> Columns id are generated accordingly to columnIdsList.
-     */
-    public NGrid<T> withProperties(String... propertiesNames) {
-        PropertyNameFormatter propertyNameFormatter = new PropertyNameFormatter();
+		return this;
+	}
 
-        // Remove all columns and add the manually.
-        removeAllColumns();
+	/**
+	 * Wrap current NGrid and set the captions to <u>all the columns</u>.
+	 *
+	 * @param columnHeaders captions to set for columns.
+	 * @return NGrid
+	 */
+	public NGrid<T> withColumnsHeaders(String... columnHeaders) {
+		List<String> columnIdsList = getColumns().stream()
+				.map(tColumn -> tColumn.getId())
+				.collect(Collectors.toList());
 
-        for (String propertyName : propertiesNames) {
-            addColumn((ValueProvider<T, Object>) t -> invokeGetterMethodByPropertyName(propertyName, t))
-                    .setCaption(propertyNameFormatter.getConvertedPropertyName(propertyName))
-                    .setId(propertyName);
-        }
+		if (columnIdsList.size() != columnHeaders.length) {
+			logger.error("ERROR during add columns headers");
+			logger.error("No match column headers for all column Id's");
+			logger.error("ColumnIdList size = " + columnIdsList.size() + ", but founded " + columnHeaders.length + " column header parameters.");
+			return this;
+		}
 
-        return this;
-    }
+		for (int i = 0; i < columnHeaders.length; ++i)
+			getColumn(columnIdsList.get(i)).setCaption(columnHeaders[i]);
 
-    /**
-     * Wrap current NGrid and set the captions to <b>ALL</b> columns.
-     *
-     * @param columnHeaders - captions to set for columns.
-     * @return NGrid
-     */
-    public NGrid<T> withColumnsHeaders(String... columnHeaders) {
-        List<String> columnIdsList = getColumns().stream()
-                .map(tColumn -> tColumn.getId())
-                .collect(Collectors.toList());
+		return this;
+	}
 
-        if (columnIdsList.size() != columnHeaders.length) {
-            logger.error("ERROR during add columns headers");
-            logger.error("No match column headers for all column Id's");
-            logger.error("ColumnIdList size = " + columnIdsList.size() + ", but founded " + columnHeaders.length + " column header parameters.");
-            return this;
-        }
+	/**
+	 * Wrap current NGrid and set columns to be hidable.
+	 *
+	 * @param columnIds column id's to be set as 'Hidable'.
+	 * @return NGrid
+	 */
+	public NGrid<T> withHidableColumns(String... columnIds) {
 
-        for (int i = 0; i < columnHeaders.length; ++i)
-            getColumn(columnIdsList.get(i)).setCaption(columnHeaders[i]);
+		Arrays.asList(columnIds).stream()
+				.forEach(columnId -> {
+					try {
+						getColumn(columnId).setHidable(true);
+					} catch (NullPointerException e) {
+						logger.error("ERROR during set hidable columns!");
+						logger.error("No column id [" + columnId + "] found in NGrid of class [" + getBeanType().getSimpleName() + "]");
+						e.printStackTrace();
+					}
+				});
 
-        return this;
-    }
+		return this;
+	}
 
-    /**
-     * Wrap current NGrid and set columns to be hidable.
-     *
-     * @param columnIds - column id's to be set as 'Hidable'.
-     * @return NGrid
-     */
-    public NGrid<T> withHidableColumns(String... columnIds) {
+	/**
+	 * Wrap current NGrid and hide columns by column id.
+	 *
+	 * @param columnIds column id's to hide.
+	 * @return NGrid
+	 */
+	public NGrid<T> withHiddenColumns(String... columnIds) {
 
-        Arrays.asList(columnIds).stream()
-                .forEach(columnId -> {
-                    try {
-                        getColumn(columnId).setHidable(true);
-                    } catch (NullPointerException e) {
-                        logger.error("ERROR during set hidable columns!");
-                        logger.error("No column id [" + columnId + "] found in NGrid of class [" + getBeanType().getSimpleName() + "]");
-                        e.printStackTrace();
-                    }
-                });
+		List<String> columnIdsList = getColumns().stream()
+				.map(Column::getId)
+				.collect(Collectors.toList());
 
-        return this;
-    }
+		if (columnIdsList.size() < columnIds.length) {
+			logger.error("ERROR during set hidden columns");
+			logger.error("ColumnIdList size = " + columnIdsList.size() + ", but founded " + columnIds.length + " column is's parameters.");
+			return this;
+		}
 
-    /**
-     * Wrap current NGrid and hide columns by column id.
-     *
-     * @param columnIds - column id's to hide.
-     * @return NGrid
-     */
-    public NGrid<T> withHidenColumns(String... columnIds) {
+		Arrays.asList(columnIds).stream()
+				.forEach(columnId -> {
+					try {
+						getColumn(columnId).setHidden(true);
+					} catch (NullPointerException e) {
+						logger.error("ERROR during hide columns!");
+						logger.error("No column id [" + columnId + "] found in NGrid of class [" + getBeanType().getSimpleName() + "]");
+						e.printStackTrace();
+					}
+				});
 
-        List<String> columnIdsList = getColumns().stream()
-                .map(tColumn -> tColumn.getId())
-                .collect(Collectors.toList());
+		return this;
+	}
 
-        if (columnIdsList.size() < columnIds.length) {
-            logger.error("ERROR during set hiden columns");
-            logger.error("ColumnIdList size = " + columnIdsList.size() + ", but founded " + columnIds.length + " column is's parameters.");
-            return this;
-        }
+	/**
+	 * Wrap current NGrid and set column order, using column Ids.
+	 *
+	 * @param columnIds order of columns.
+	 * @return NGrid
+	 */
+	public NGrid<T> withColumnOrder(String... columnIds) {
+		try {
+			setColumnOrder(columnIds);
+		} catch (IllegalStateException | NullPointerException e) {
+			logger.error("ERROR during set column order!");
+			e.printStackTrace();
+		}
+		return this;
+	}
 
-        Arrays.asList(columnIds).stream()
-                .forEach(columnId -> {
-                    try {
-                        getColumn(columnId).setHidden(true);
-                    } catch (NullPointerException e) {
-                        logger.error("ERROR during hide columns!");
-                        logger.error("No column id [" + columnId + "] found in NGrid of class [" + getBeanType().getSimpleName() + "]");
-                        e.printStackTrace();
-                    }
-                });
+	/**
+	 * Get a Map with some grid columns details.
+	 * Key - column Caption.
+	 * Value - column id.
+	 *
+	 * @return Map
+	 */
+	public Map<String, String> getColumnCaptionToColumnIdMap() {
+		Map<String, String> columnIdCaptionMap = new LinkedHashMap<>();
 
-        return this;
-    }
+		getColumns().forEach(column -> {
+			columnIdCaptionMap.put(column.getCaption(), column.getId());
+		});
 
-    /**
-     * Wrap current NGrid and set column order, using column Ids.
-     *
-     * @param columnIds - order of columns.
-     * @return NGrid
-     */
-    public NGrid<T> withColumnOrder(String... columnIds) {
-        try {
-            setColumnOrder(columnIds);
-        } catch (IllegalStateException | NullPointerException e) {
-            logger.error("ERROR during set column order!");
-            e.printStackTrace();
-        }
-        return this;
-    }
-
-    /**
-     * Get a Map with all grid columns details.
-     * Key - column Caption.
-     * Value - column id.
-     *
-     * @return Map
-     */
-    public Map<String, String> getColumnCaptionToColumnIdMap() {
-        Map<String, String> columnIdCaptionMap = new LinkedHashMap<>();
-
-        getColumns().stream().forEach(column -> {
-            columnIdCaptionMap.put(column.getCaption(), column.getId());
-        });
-
-        return columnIdCaptionMap;
-    }
+		return columnIdCaptionMap;
+	}
 
 }
