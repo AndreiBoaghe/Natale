@@ -2,10 +2,12 @@ package org.vaadin.natale.components;
 
 import com.vaadin.data.ValueProvider;
 import com.vaadin.data.provider.DataProvider;
+import com.vaadin.data.provider.ListDataProvider;
 import com.vaadin.ui.Grid;
 import org.apache.log4j.Logger;
 import org.vaadin.natale.util.PropertyNameFormatter;
 
+import javax.naming.SizeLimitExceededException;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -14,7 +16,13 @@ import java.util.stream.Collectors;
 
 import static org.vaadin.natale.util.ReflectionUtil.getPropertyValueByName;
 
-
+/**
+ * A better typed version of the {@link Grid} component in Vaadin.<br>
+ * Allows user manually add nested property as columns and simplify<br>
+ * Grid creation.
+ *
+ * @param <T> data type
+ */
 public class NGrid<T> extends Grid<T> {
 
 	private static final Logger logger = Logger.getLogger(NGrid.class);
@@ -30,10 +38,11 @@ public class NGrid<T> extends Grid<T> {
 
 	/**
 	 * Wrap current NGrid and create (set Captions and Id) columns.<br>
+	 * <b>Note:</b> Columns id are generated accordingly to columnIdsList.<br>
+	 * It means, column.id = propertyName.
 	 *
 	 * @param propertiesNames properties names of {@code <T>} class.
-	 * @return NGrid.
-	 * <br><b>Note:</b> Columns id are generated accordingly to columnIdsList.
+	 * @return current NGrid.
 	 */
 	public NGrid<T> withColumns(String... propertiesNames) {
 		PropertyNameFormatter propertyNameFormatter = new PropertyNameFormatter();
@@ -54,18 +63,18 @@ public class NGrid<T> extends Grid<T> {
 	 * Wrap current NGrid and set the captions to <u>all the columns</u>.
 	 *
 	 * @param columnHeaders captions to set for columns.
-	 * @return NGrid
+	 * @return current NGrid
 	 */
 	public NGrid<T> withColumnsHeaders(String... columnHeaders) {
 		List<String> columnIdsList = getColumns().stream()
-				.map(tColumn -> tColumn.getId())
+				.map(Column::getId)
 				.collect(Collectors.toList());
 
 		if (columnIdsList.size() != columnHeaders.length) {
-			logger.error("ERROR during add columns headers");
-			logger.error("No match column headers for all column Id's");
-			logger.error("ColumnIdList size = " + columnIdsList.size() + ", but founded " + columnHeaders.length + " column header parameters.");
-			return this;
+			String errorMessage = "No match column headers for all column Id's" +
+					"ColumnIdList size = " + columnIdsList.size() + ", but founded " + columnHeaders.length + " column header parameters.";
+			logger.error(errorMessage);
+			throw new RuntimeException(errorMessage);
 		}
 
 		for (int i = 0; i < columnHeaders.length; ++i)
@@ -78,20 +87,17 @@ public class NGrid<T> extends Grid<T> {
 	 * Wrap current NGrid and set columns to be hidable.
 	 *
 	 * @param columnIds column id's to be set as 'Hidable'.
-	 * @return NGrid
+	 * @return current NGrid
 	 */
 	public NGrid<T> withHidableColumns(String... columnIds) {
 
-		Arrays.asList(columnIds).stream()
-				.forEach(columnId -> {
-					try {
-						getColumn(columnId).setHidable(true);
-					} catch (NullPointerException e) {
-						logger.error("ERROR during set hidable columns!");
-						logger.error("No column id [" + columnId + "] found in NGrid of class [" + getBeanType().getSimpleName() + "]");
-						e.printStackTrace();
-					}
-				});
+		Arrays.asList(columnIds).forEach(columnId -> {
+			try {
+				getColumn(columnId).setHidable(true);
+			} catch (NullPointerException e) {
+				logColumnNotFoundError(columnId);
+			}
+		});
 
 		return this;
 	}
@@ -100,7 +106,7 @@ public class NGrid<T> extends Grid<T> {
 	 * Wrap current NGrid and hide columns by column id.
 	 *
 	 * @param columnIds column id's to hide.
-	 * @return NGrid
+	 * @return current NGrid
 	 */
 	public NGrid<T> withHiddenColumns(String... columnIds) {
 
@@ -109,21 +115,18 @@ public class NGrid<T> extends Grid<T> {
 				.collect(Collectors.toList());
 
 		if (columnIdsList.size() < columnIds.length) {
-			logger.error("ERROR during set hidden columns");
-			logger.error("ColumnIdList size = " + columnIdsList.size() + ", but founded " + columnIds.length + " column is's parameters.");
-			return this;
+			String errorMessage = "ColumnIdList size = " + columnIdsList.size() + ", but founded " + columnIds.length + " column is's parameters.";
+			logger.error(errorMessage);
+			throw new RuntimeException(errorMessage);
 		}
 
-		Arrays.asList(columnIds).stream()
-				.forEach(columnId -> {
-					try {
-						getColumn(columnId).setHidden(true);
-					} catch (NullPointerException e) {
-						logger.error("ERROR during hide columns!");
-						logger.error("No column id [" + columnId + "] found in NGrid of class [" + getBeanType().getSimpleName() + "]");
-						e.printStackTrace();
-					}
-				});
+		Arrays.asList(columnIds).forEach(columnId -> {
+			try {
+				getColumn(columnId).setHidden(true);
+			} catch (NullPointerException e) {
+				logColumnNotFoundError(columnId);
+			}
+		});
 
 		return this;
 	}
@@ -132,33 +135,21 @@ public class NGrid<T> extends Grid<T> {
 	 * Wrap current NGrid and set column order, using column Ids.
 	 *
 	 * @param columnIds order of columns.
-	 * @return NGrid
+	 * @return current NGrid
 	 */
 	public NGrid<T> withColumnOrder(String... columnIds) {
 		try {
 			setColumnOrder(columnIds);
 		} catch (IllegalStateException | NullPointerException e) {
-			logger.error("ERROR during set column order!");
 			e.printStackTrace();
 		}
 		return this;
 	}
 
-	/**
-	 * Get a Map with some grid columns details.
-	 * Key - column Caption.
-	 * Value - column id.
-	 *
-	 * @return Map
-	 */
-	public Map<String, String> getColumnCaptionToColumnIdMap() {
-		Map<String, String> columnIdCaptionMap = new LinkedHashMap<>();
-
-		getColumns().forEach(column -> {
-			columnIdCaptionMap.put(column.getCaption(), column.getId());
-		});
-
-		return columnIdCaptionMap;
+	private void logColumnNotFoundError(String columnId) {
+		String errorMessage = "No column id [" + columnId + "] found in NGrid of class [" + getBeanType().getSimpleName() + "]";
+		logger.error(errorMessage);
+		throw new NullPointerException(errorMessage);
 	}
 
 }
